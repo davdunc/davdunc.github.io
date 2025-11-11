@@ -277,8 +277,9 @@ Credentials are stored separately with restricted permissions:
 `/etc/colosseum/secrets/ib_credentials.json`:
 ```json
 {
-  "username": "my_ib_username",
-  "password": "encrypted_password_hash"
+{
+  "username": "<USERNAME>",
+  "password": "<ENCRYPTED_PASSWORD_HASH>"
 }
 ```
 
