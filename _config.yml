@@ -6,12 +6,12 @@ description: >-
   and software engineering projects by David Duncan.
 
 baseurl: ""
-url: "https://blog.davidduncan.org"
+url: "https://davdunc.github.io"
 
 # Author info
 author:
   name: David Duncan
-  email: your-email@example.com
+  email: davdunc@gmail.com
   github: davdunc
 
 # Build settings

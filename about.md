@@ -6,32 +6,52 @@ permalink: /about/
 
 # About Me
 
-I'm David Duncan, a software engineer passionate about building high-performance systems and exploring the intersection of finance and technology.
+I'm David Duncan, a software engineer working on AI-driven trading systems and Linux infrastructure.
 
-## What I Do
+## Current Projects
 
-### Trading Framework Development
-I'm currently building my own trading framework from scratch, focusing on:
-- Low-latency order execution
-- Real-time market data processing
-- Backtesting and strategy optimization
-- Risk management systems
+### Colosseum - Multi-Agent Investment Framework
 
-### Linux Development
-I contribute to and work on various Linux distributions, with expertise in:
-- System-level programming
-- Kernel development and optimization
-- Distribution packaging and maintenance
-- Performance tuning and debugging
+I'm building [Colosseum](https://github.com/davdunc/colosseum), a multi-agent system that simulates an investment committee using AI agents. The framework orchestrates specialized agents (technical analysis, fundamental analysis, sentiment analysis) that collaborate on trading decisions.
 
-### Software Engineering
-I enjoy sharing knowledge about software development practices, tools, and techniques that I've learned throughout my career.
+**Tech Stack:**
+- LangChain/LangGraph for agent orchestration
+- Model Context Protocol (MCP) for secure broker integration
+- PostgreSQL for state management
+- Podman Quadlets for containerized deployment
+- Python 3.9+ with async/await patterns
+
+**Current Focus:**
+- Broker integrations (Interactive Brokers, E*TRADE, DAS Trader)
+- Risk management layers
+- Backtesting infrastructure
+- Agent specialization and coordination
+
+### Linux & Infrastructure
+
+I work with Fedora Linux and containerized deployments:
+- Podman/systemd integration
+- Package maintenance and RPM building
+- Container orchestration with Quadlets
+- Production deployment automation
+
+## What I Write About
+
+This blog documents real technical work:
+- AI agent architecture and design patterns
+- Secure API integration strategies
+- Container orchestration and Linux infrastructure
+- Performance optimization techniques
+- Actual code from real projects
+
+No hypothetical examples - everything here is based on production systems and real implementations.
 
 ## Get in Touch
 
 - **GitHub**: [github.com/davdunc](https://github.com/davdunc)
-- **Email**: your-email@example.com
+- **Email**: davdunc@gmail.com
+- **Colosseum Project**: [github.com/davdunc/colosseum](https://github.com/davdunc/colosseum)
 
 ## About This Blog
 
-This blog is built with Jekyll and hosted on GitHub Pages. All posts reflect my personal opinions and experiences. Feel free to reach out if you have questions or want to discuss any of the topics I write about!
+Jekyll-powered, GitHub Pages-hosted. All posts reflect real technical work and lessons learned from building production systems. If you have questions about any of the topics or want to discuss implementation details, feel free to reach out!
