@@ -1,0 +1,58 @@
+---
+layout: default
+title: Archive
+permalink: /archive/
+---
+
+<h1>Post Archive</h1>
+
+<p>All {{ site.posts | size }} posts, organized by year.</p>
+
+{% assign postsByYear = site.posts | group_by_exp:"post", "post.date | date: '%Y'" %}
+
+{% for year in postsByYear %}
+  <h2>{{ year.name }}</h2>
+  <ul class="archive-list">
+    {% for post in year.items %}
+    <li class="archive-item">
+      <span class="archive-date">{{ post.date | date: "%b %-d" }}</span>
+      <a href="{{ post.url | relative_url }}">{{ post.title }}</a>
+      {% if post.categories %}
+        •
+        {% for category in post.categories %}
+          <span class="post-category">{{ category }}</span>{% unless forloop.last %}, {% endunless %}
+        {% endfor %}
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+{% endfor %}
+
+<style>
+  .archive-list {
+    list-style: none;
+    padding: 0;
+  }
+  .archive-item {
+    margin-bottom: 0.8em;
+    padding: 0.5em 0;
+  }
+  .archive-date {
+    display: inline-block;
+    width: 60px;
+    color: #777;
+    font-size: 0.9em;
+  }
+  .archive-item a {
+    text-decoration: none;
+  }
+  .archive-item a:hover {
+    text-decoration: underline;
+  }
+  .post-category {
+    background: #f0f0f0;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.85em;
+  }
+</style>

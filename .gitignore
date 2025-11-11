@@ -3,3 +3,20 @@
 
 # Packaging
 .cask
+
+# Jekyll
+_site/
+.sass-cache/
+.jekyll-cache/
+.jekyll-metadata
+.bundle/
+vendor/
+Gemfile.lock
+*.gem
+
+# Backup files
+index.html.bak
+params.json
+
+# OS
+.DS_Store
