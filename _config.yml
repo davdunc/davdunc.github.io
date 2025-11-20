@@ -1,0 +1,53 @@
+# Site settings
+title: Despite all the pressure from the kennel, I am writing.
+tagline: A collection of not-so-memorable thoughts and musings.
+description: >-
+  Technical blog covering trading frameworks, Linux development,
+  and software engineering projects by David Duncan.
+
+baseurl: ""
+url: "https://davdunc.github.io"
+
+# Author info
+author:
+  name: David Duncan
+  email: davdunc@gmail.com
+  github: davdunc
+
+# Build settings
+markdown: kramdown
+permalink: /:year/:month/:day/:title/
+timezone: America/New_York
+
+# Collections
+collections:
+  posts:
+    output: true
+    permalink: /posts/:year/:month/:day/:title/
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "post"
+      author: "David Duncan"
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
+  - .gitignore
+  - params.json
+
+# Google Analytics
+google_analytics: UA-1048265-1
