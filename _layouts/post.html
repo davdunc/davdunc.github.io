@@ -1,0 +1,10 @@
+---
+layout: default
+---
+<article>
+  <h2>{{ page.title }}</h2>
+  <p class="post-meta"><small>{{ page.date | date: "%B %d, %Y" }}{% if page.author %} &mdash; {{ page.author }}{% endif %}</small></p>
+  {{ content }}
+  <hr>
+  <p><a href="/">&larr; Back to all posts</a></p>
+</article>

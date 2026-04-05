@@ -1,0 +1,15 @@
+title: "Despite all the pressure from the kennel, I am writing."
+description: "A collection of not-so-memorable thoughts and musings."
+url: "https://blog.davidduncan.org"
+author: davdunc
+markdown: kramdown
+permalink: /:year/:month/:day/:title/
+plugins:
+  - jekyll-seo-tag
+
+defaults:
+  - scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "post"
