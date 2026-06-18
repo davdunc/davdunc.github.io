@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>From Laptop Chaos to Fedora Cloud — Quadlets and Containers</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+<style>
+  .reveal .slides section { display: flex !important; flex-direction: column; justify-content: flex-start; padding-top: 20px; }
+  .reveal section h1 { font-size: 1.7em; }
+  .reveal section h2 { font-size: 1.25em; }
+  .reveal pre { width: 100%; box-shadow: none; font-size: 0.5em; }
+  .reveal pre code { max-height: 520px; padding: 12px; }
+  .reveal table { font-size: 0.62em; margin: 0 auto; }
+  .reveal table th, .reveal table td { padding: 0.2em 0.5em; }
+  .reveal ul { display: block; }
+  .reveal blockquote { width: 100%; font-size: 0.8em; }
+</style>
+</head>
+<body>
+<div class="reveal"><div class="slides">
+  <section data-markdown
+           data-separator="\r?\n---\r?\n"
+           data-separator-notes="^Note:">
+    <script type="text/template">
+# From **Laptop Chaos** to **Fedora Cloud**
+### Decomposing a multi-agent AI stack into Podman Quadlets
+
+**David Duncan** · Fedora / AWS Cloud
+Flock · AI & Data Science
+
+Note:
+⏱0:30 — "Raise your hand if you've wired an AI app together with a folder of shell scripts. Yeah. This is the talk about getting out of that." Set the relatable hook immediately.
+
+---
+
+## My example: an AI agent stack
+
+A real, running system — I'll call it the **agent framework**:
+
+- **AI screening agents** — rank the universe, explain decisions with an LLM
+- **A multi-agent trader** — agents that propose, vote, and act
+- **Schedulers** — jobs that fire on a clock
+- **Data + infra sidecars** — Postgres, Redis, a metrics stack, a router
+
+*(It happens to trade stocks — ignore that; the shape is any multi-service AI app.)*
+
+Note:
+⏱2:00 — Ground the example fast and abstract it: the audience should map it onto THEIR agents/RAG/pipelines. The point is the architecture, not the domain.
+
+---
+
+## The chaos (you know this stack)
+
+```bash
+# start-everything.sh  ← the thing we all have
+podman run -d --name pg postgres ...
+sleep 5                       # "wait for the db, probably"
+podman run -d --name redis ...
+nohup python screener_agent.py &      # which terminal was this?
+nohup python trader_agent.py  &
+( while true; do python sync.py; sleep 60; done ) &   # my "scheduler"
+```
+
+- Start order? **Hope.** A crash? **Gone.** Reboot? **Re-run it all by hand.**
+- Logs in five terminals. "Works on my laptop." Ships **nowhere**.
+
+Note:
+⏱4:30 — Spend time here — this is the emotional core for an AI audience. Everyone has this script. Name every pain (ordering, restart, reboot, logs, reproducibility). This is the "chaos" the title promises.
+
+---
+
+## What the stack actually is
+
+| Tier | Components | Today wired by… |
+|---|---|---|
+| **Agents** | screener (LLM), trader (multi-agent), messenger | `nohup … &` |
+| **Schedulers** | pre-market run, data sync | `while true; sleep` |
+| **Data** | PostgreSQL, Redis | "did I start it?" |
+| **Sidecars** | router, metrics, service registry | more scripts |
+
+Four kinds of thing. **One pile of ad-hoc glue.** Let's replace the glue.
+
+Note:
+⏱6:00 — Crystallize: databases + agents + schedulers + sidecars (the session abstract verbatim). The "glue" is the enemy; the rest of the talk replaces it with declarative units.
+
+---
+
+## The insight
+
+The thing supervising your laptop **already exists**: `systemd`.
+
+It has: dependency ordering · restart-on-failure · boot integration · a scheduler (timers) · logging (journald) · rootless services.
+
+> You don't need a control plane to run a multi-agent app. You need to **declare** it.
+
+**Podman Quadlets** are how you hand your containers to systemd — as files.
+
+Note:
+⏱7:30 — The pivot. Don't trash Kubernetes — "right tool, wrong scale." For one node (a laptop, a cloud VM), systemd IS the orchestrator. Quadlets are the on-ramp.
+
+---
+
+## Why not Compose? Why not Kubernetes?
+
+| | compose | Kubernetes | **Quadlets** |
+|---|---|---|---|
+| Boot integration | bolt-on | cluster | **native systemd** |
+| Restart / health | basic | great | **systemd + Podman** |
+| Scheduling | none | CronJob | **systemd timers** |
+| Ops surface | a daemon | enormous | **journald + systemctl** |
+| Rootless | awkward | n/a | **first-class** |
+
+Note:
+⏱9:00 — CUTTABLE if tight. The one-liner if you cut it: "Compose can't survive a reboot; k8s is a second system to run. Quadlets are just files systemd already understands."
+
+---
+
+## What is a quadlet?
+
+A **declarative unit file**; Podman's systemd **generator** turns it into a real `.service`.
+
+```ini
+# screener.container   →  generated as  screener.service
+[Container]
+Image=localhost/agent-screener:latest
+Network=agents.network
+```
+
+- You write `*.container`, `*.network`, `*.timer`
+- `systemctl daemon-reload` → the generator emits the `.service`
+- `systemctl --user start screener` — done. **Rootless** by default.
+
+Note:
+⏱11:00 — The mechanism + the aha: you never hand-write `ExecStart=podman run …` — the generator does. This replaces your start-everything.sh, one file per service.
+
+---
+
+## Decompose: one agent → one quadlet
+
+```ini
+[Unit]
+Description=Screener agent
+After=postgresql.service redis.service     # ordering, not sleep 5
+Requires=postgresql.service
+
+[Container]
+Image=localhost/agent-screener:latest
+Network=agents.network
+EnvironmentFile=/etc/agents/agents.env
+EnvironmentFile=/etc/agents/secrets.env    # model API keys, layered
+HealthCmd=python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"
+
+[Service]
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+```
+
+Note:
+⏱14:00 — The heart of the talk. Walk it top-to-bottom: ordering replaces `sleep 5`; layered EnvironmentFile is where your model API keys live (relevant to THIS audience); a healthcheck; restart policy. One file replaces three lines of your chaos script AND makes it survive reboot. Spend time.
+
+---
+
+## The whole stack, as files
+
+**~19 quadlets, three tiers, one shared network:**
+
+- **Agents** — screener · trader · messenger · dashboard
+- **Schedulers (timer + oneshot)** — pre-market run · midday · evening · data-sync
+- **Data + sidecars** — postgresql · redis · traefik · consul · prometheus · grafana
+
+All on **`agents.network`** (bridge, `10.89.0.0/24`). The pile of scripts is now a **directory of declarations** in git.
+
+Note:
+⏱16:00 — Show the breadth and the payoff: the chaos is now an auditable, version-controlled directory. Three tiers map to the next three slides.
+
+---
+
+## Service discovery for free — a shared network
+
+```ini
+# agents.network  →  podman network "agents"
+[Network]
+Subnet=10.89.0.0/24
+Driver=bridge
+```
+
+- Every service: `Network=agents.network`
+- Agents resolve each other **by name** — no IP wrangling, no `links`:
+  `postgresql://postgresql:5432`, `http://screener:5000`
+
+One file, referenced everywhere. This is what your scripts faked with `--add-host`.
+
+Note:
+⏱17:30 — DNS-by-name is the thing people reach for pods/compose to get. You get it from one .network file. Pre-empt the "where are the pods?" question → next slide.
+
+---
+
+## Pods vs. a shared network — my call
+
+A **pod** = one network namespace (containers share `localhost`, one IP).
+I chose a **shared bridge network** instead, because for agents:
+
+- each agent needs an **independent** lifecycle — start/stop/restart/schedule alone
+- **DNS-by-name** already gives discovery; I don't need shared `localhost`
+- ordering comes from `After=`/`Requires=` — **without** coupling lifecycles
+- scheduled agents **run and exit** — awkward inside a long-lived pod
+
+**Pod** = one unit (app + sidecar). **Network** = peers with independent lives. Agents are peers.
+
+Note:
+⏱19:00 — Turns "I don't use pods" into a defensible design decision. The oneshot-agent point is strongest: pods and run-then-exit jobs fight each other.
+
+---
+
+## Schedulers = timer + oneshot quadlet
+
+```ini
+# screener-morning.timer
+[Timer]
+OnCalendar=*-*-* 04:00:00 America/New_York   # timezone-aware
+Persistent=true                              # caught up if the box slept
+```
+```ini
+# screener-morning.container
+[Container]
+Image=localhost/agent-screener:latest
+Exec=--run-type morning
+[Service]
+Type=oneshot                                 # run the agent, write to DB, exit
+```
+
+`cron` can't do: timezones, `Persistent=true` catch-up, dependency ordering, journald, `systemctl list-timers`.
+
+Note:
+⏱21:30 — Your `while true; sleep 60` becomes a real scheduler. For AI: batch/ETL/eval agents that fire on a clock and exit is the common shape. Persistent=true matters for laptops that sleep.
+
+---
+
+## Reliability you stop writing yourself
+
+- **`HealthCmd` / `HealthInterval`** — Podman healthchecks, surfaced to systemd
+- **`Restart=always` / `RestartSec`** — an agent crashes → back in 5s
+- **`After=` / `Requires=`** — DB + Redis before the agents
+- **`WantedBy=default.target`** — the whole stack returns **on reboot, in order**
+
+No supervisor, no `restart: unless-stopped` cargo-culting. The OS does it.
+
+Note:
+⏱23:00 — Tie the reliability story together. The audience should feel: I delete my babysitting scripts and get k8s-lite self-healing from files.
+
+---
+
+## Secrets & config — where your model keys live
+
+```ini
+EnvironmentFile=/etc/agents/agents.env      # non-secret config
+EnvironmentFile=/etc/agents/secrets.env     # ANTHROPIC_API_KEY, … (chmod 600)
+# or, better:
+Secret=anthropic-key,type=env,target=ANTHROPIC_API_KEY
+```
+
+- **Last file wins** → layer defaults ← overrides
+- Podman **secrets** keep keys out of the image and out of `ps`
+- Same unit, different env per environment: laptop → cloud, no code change
+
+Note:
+⏱24:30 — NEW + audience-specific: every AI agent needs model API keys. Show the layering + podman secrets. This is the bridge to "same units, laptop to cloud."
+
+---
+
+## From laptop to **Fedora Cloud Edition**
+
+The same quadlets, unchanged, leave the laptop:
+
+```bash
+# Fedora Cloud Edition VM (cloud-init drops your quadlets in place)
+/etc/containers/systemd/*.container
+systemctl daemon-reload && systemctl start agents.target
+```
+
+- **Fedora Cloud Edition** — boot the image, lay down the unit files, done
+- Rootless or system units; **same files** you ran locally
+- This is the whole promise of the title: **laptop chaos → reproducible cloud**
+
+Note:
+⏱27:30 — THE destination slide; the title pays off here. The deploy is "drop files + daemon-reload" — identical to local. cloud-init/Ignition writes the quadlets; no bespoke deploy tool. Reproducible because it's declarative.
+
+---
+
+## Fedora Containers + image mode (bootc)
+
+- Build agent images **on Fedora** — `quay.io/fedora/*`, dnf, clean base
+- **bootc / image mode**: ship the *node* as a versioned container image too
+  - my EKS worker = a **Fedora 42 bootc** image; update = rebuild + reboot, no drift
+- Quadlets + bootc = the OS *and* the workload are both **declarative and rebuildable**
+
+Note:
+⏱29:00 — For the cloud/Fedora angle: it's containers all the way down — the workload (quadlets) AND the host (bootc image mode). Mention the real EKS node is a Fedora bootc image. Immutable, reproducible, no config drift.
+
+---
+
+## Quadlets in **Podman Desktop**
+
+Two homes for your quadlets — Podman Desktop treats them differently:
+
+| | **Managed machine** | **Your own WSL/Fedora distro** |
+|---|---|---|
+| Podman | Podman Desktop runs it | native rootless — you own it |
+| In the GUI | ✅ first-class; **Quadlet extension** lists/edits units | ⚠️ CLI-only via an SSH `system connection` |
+| Best for | demos, GUI management | the real stack, host access |
+
+**Podman Desktop is machine-centric.** *(LIVE: Quadlet extension → a `.container` → `daemon-reload` → it appears in the GUI.)*
+
+Note:
+⏱31:00 — LIVE DEMO slot. Open the Quadlet extension against the managed machine, daemon-reload a unit, watch it appear, click into logs/health. Then: "my real stack runs in my own Fedora distro — PD sees that only over the CLI."
+
+---
+
+## Pointing PD at your own distro — the rough edges
+
+```bash
+systemctl --user enable --now podman.socket   # rootless API
+loginctl enable-linger "$USER"                 # survives logout
+```
+```powershell
+podman system connection add agents --identity %USERPROFILE%\.ssh\key `
+  ssh://you@localhost:22/run/user/1000/podman/podman.sock
+```
+
+- `--default` **silently didn't stick** → `podman system connection default agents`
+- GUI shows **machines, not SSH connections** — perfect for the CLI, not the tile
+- Survive `wsl --shutdown`: `systemd=true` + linger + a logon task to boot the distro
+
+Note:
+⏱32:30 — The war-story slide (this is exactly what I fought this week). WSL folks nod hard. Honest CLI-vs-GUI / machine-vs-distro takeaway > pretending it's seamless.
+
+---
+
+## Lessons / gotchas
+
+- **`daemon-reload`** after every quadlet edit — the generator only re-runs then
+- **`EnvironmentFile` order matters** — last wins; layer config ← secrets
+- **`:Z`** on volumes or fight SELinux AVCs
+- **Oneshot timers** beat a long-running `while-sleep` agent every time
+- **Rootless + privileged ports** — publish, or one service to host networking
+
+Note:
+⏱33:30 — Rapid-fire credibility; CUTTABLE buffer. These are the things that actually bit me.
+
+---
+
+## Takeaways
+
+1. Your `start-everything.sh` is an orchestrator spec — **write it as quadlets**
+2. For one node, **systemd is the orchestrator**; quadlets expose it
+3. **Agents fit cleanly**: long-running = `.container`, scheduled = timer + oneshot
+4. The **same files** go laptop → **Fedora Cloud Edition** → bootc node
+
+### From laptop chaos to Fedora Cloud — it's just files.
+
+**Thank you — questions?** · `github.com/TradingAsBuddies`
+
+Note:
+⏱35:00 — Land the four takeaways, restate the title arc, open Q&A. Likely Qs: why not k3s? (one node, ops surface); secrets? (EnvironmentFile + podman secrets); pods really never? (sidecars would change it); updates? (rebuild image + restart, or bootc reboot).
+    </script>
+  </section>
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/markdown/markdown.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    slideNumber: 'c/t',
+    transition: 'slide',
+    plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ],
+    width: 1280,
+    height: 720
+  });
+</script>
+</body>
+</html>
