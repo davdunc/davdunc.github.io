@@ -113,8 +113,10 @@ Note:
 | Ops surface | a daemon | enormous | **journald + systemctl** |
 | Rootless | awkward | n/a | **first-class** |
 
+**Already have a compose file? Don't rewrite it — migrate:** `podlet compose compose.yaml` → quadlet units.
+
 Note:
-⏱9:00 — CUTTABLE if tight. The one-liner if you cut it: "Compose can't survive a reboot; k8s is a second system to run. Quadlets are just files systemd already understands."
+⏱9:00 — CUTTABLE if tight. One-liner if cut: "Compose can't survive a reboot; k8s is a second system to run." KEY POINT (expect this as a question): `podman compose`/`podman-compose` only RUN a compose file — they do NOT make quadlets. The compose→quadlet converter is `podlet` (in the Fedora repos: dnf install podlet). And `podman generate systemd` is now DEPRECATED in favor of Quadlet.
 
 ---
 
