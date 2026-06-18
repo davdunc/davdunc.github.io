@@ -50,19 +50,19 @@ Note:
 
 ---
 
-## My example: an AI agent stack
+## My example: **Falcon**
 
-A real, running system — I'll call it the **agent framework**:
+A real, running **agentic framework** I built:
 
 - **AI screening agents** — rank the universe, explain decisions with an LLM
 - **A multi-agent trader** — agents that propose, vote, and act
-- **Schedulers** — jobs that fire on a clock
+- **Schedulers** — agents that fire on a clock
 - **Data + infra sidecars** — Postgres, Redis, a metrics stack, a router
 
-*(It happens to trade stocks — ignore that; the shape is any multi-service AI app.)*
+*(The domain happens to be markets — the shape is any multi-service agentic app.)*
 
 Note:
-⏱2:00 — Ground the example fast and abstract it: the audience should map it onto THEIR agents/RAG/pipelines. The point is the architecture, not the domain.
+⏱2:00 — Name it: Falcon, my agentic framework. Ground it fast, then abstract — the audience maps it onto THEIR agents/RAG/pipelines. The architecture is the point, not the domain.
 
 ---
 
@@ -141,8 +141,8 @@ A **declarative unit file**; Podman's systemd **generator** turns it into a real
 ```ini
 # screener.container   →  generated as  screener.service
 [Container]
-Image=localhost/agent-screener:latest
-Network=agents.network
+Image=localhost/falcon-screener:latest
+Network=falcon.network
 ```
 
 - You write `*.container`, `*.network`, `*.timer`
@@ -163,10 +163,10 @@ After=postgresql.service redis.service     # ordering, not sleep 5
 Requires=postgresql.service
 
 [Container]
-Image=localhost/agent-screener:latest
-Network=agents.network
-EnvironmentFile=/etc/agents/agents.env
-EnvironmentFile=/etc/agents/secrets.env    # model API keys, layered
+Image=localhost/falcon-screener:latest
+Network=falcon.network
+EnvironmentFile=/etc/falcon/falcon.env
+EnvironmentFile=/etc/falcon/secrets.env    # model API keys, layered
 HealthCmd=python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"
 
 [Service]
@@ -190,7 +190,7 @@ Note:
 - **Schedulers (timer + oneshot)** — pre-market run · midday · evening · data-sync
 - **Data + sidecars** — postgresql · redis · traefik · consul · prometheus · grafana
 
-All on **`agents.network`** (bridge, `10.89.0.0/24`). The pile of scripts is now a **directory of declarations** in git.
+All on **`falcon.network`** (bridge, `10.89.0.0/24`). The pile of scripts is now a **directory of declarations** in git.
 
 Note:
 ⏱16:00 — Show the breadth and the payoff: the chaos is now an auditable, version-controlled directory. Three tiers map to the next three slides.
@@ -200,13 +200,13 @@ Note:
 ## Service discovery for free — a shared network
 
 ```ini
-# agents.network  →  podman network "agents"
+# falcon.network  →  podman network "agents"
 [Network]
 Subnet=10.89.0.0/24
 Driver=bridge
 ```
 
-- Every service: `Network=agents.network`
+- Every service: `Network=falcon.network`
 - Agents resolve each other **by name** — no IP wrangling, no `links`:
   `postgresql://postgresql:5432`, `http://screener:5000`
 
@@ -245,7 +245,7 @@ Persistent=true                              # caught up if the box slept
 ```ini
 # screener-morning.container
 [Container]
-Image=localhost/agent-screener:latest
+Image=localhost/falcon-screener:latest
 Exec=--run-type morning
 [Service]
 Type=oneshot                                 # run the agent, write to DB, exit
@@ -275,8 +275,8 @@ Note:
 ## Secrets & config — where your model keys live
 
 ```ini
-EnvironmentFile=/etc/agents/agents.env      # non-secret config
-EnvironmentFile=/etc/agents/secrets.env     # ANTHROPIC_API_KEY, … (chmod 600)
+EnvironmentFile=/etc/falcon/falcon.env      # non-secret config
+EnvironmentFile=/etc/falcon/secrets.env     # ANTHROPIC_API_KEY, … (chmod 600)
 # or, better:
 Secret=anthropic-key,type=env,target=ANTHROPIC_API_KEY
 ```
@@ -297,7 +297,7 @@ The same quadlets, unchanged, leave the laptop:
 ```bash
 # Fedora Cloud Edition VM (cloud-init drops your quadlets in place)
 /etc/containers/systemd/*.container
-systemctl daemon-reload && systemctl start agents.target
+systemctl daemon-reload && systemctl start falcon.target
 ```
 
 - **Fedora Cloud Edition** — boot the image, lay down the unit files, done
@@ -345,7 +345,7 @@ systemctl --user enable --now podman.socket   # rootless API
 loginctl enable-linger "$USER"                 # survives logout
 ```
 ```powershell
-podman system connection add agents --identity %USERPROFILE%\.ssh\key `
+podman system connection add falcon --identity %USERPROFILE%\.ssh\key `
   ssh://you@localhost:22/run/user/1000/podman/podman.sock
 ```
 
