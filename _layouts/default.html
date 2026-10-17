@@ -24,6 +24,7 @@
             <li><a href="{{ '/' | relative_url }}">Home</a></li>
             <li><a href="{{ '/about' | relative_url }}">About</a></li>
             <li><a href="{{ '/archive' | relative_url }}">Archive</a></li>
+            <li><a href="{{ '/laptop-chaos-fedora-cloud/slides.html' | relative_url }}">Talks</a></li>
           </ul>
         </nav>
 
@@ -41,7 +42,7 @@
     <script src="{{ '/javascripts/scale.fix.js' | relative_url }}"></script>
 
     {% if site.google_analytics %}
-    <script async src=" site.google_analytics }}"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ site.google_analytics }}"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
